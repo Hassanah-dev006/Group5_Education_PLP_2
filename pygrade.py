@@ -1,8 +1,3 @@
-"""
-PyGrade - Python-based Automated Grading System
-A comprehensive grading management system with SQLite database
-"""
-
 import hashlib
 from datetime import datetime
 from typing import Dict, List, Optional
