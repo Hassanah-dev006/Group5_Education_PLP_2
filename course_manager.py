@@ -1,5 +1,8 @@
-import json
-import os
+"""
+Course Manager Module
+Handles course creation, loading, and management using SQLite database
+"""
+
 from datetime import datetime
 from typing import Dict, List, Optional
 
@@ -7,15 +10,15 @@ from typing import Dict, List, Optional
 class CourseManager:
     """Manages course information and operations"""
     
-    def __init__(self):
-        self.courses_dir = "courses"
+    def __init__(self, db):
+        """
+        Initialize course manager
+        
+        Args:
+            db: DatabaseManager instance
+        """
+        self.db = db
         self.current_course = None
-        self._initialize_directories()
-    
-    def _initialize_directories(self):
-        """Create necessary directories if they don't exist"""
-        if not os.path.exists(self.courses_dir):
-            os.makedirs(self.courses_dir)
     
     def create_course(self, code: str, name: str, semester: str) -> bool:
         """
@@ -29,24 +32,19 @@ class CourseManager:
         Returns:
             bool: True if successful, False otherwise
         """
-        course_file = os.path.join(self.courses_dir, f"{code}.json")
+        created_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        last_modified = created_date
         
-        if os.path.exists(course_file):
-            return False
-        
-        course_data = {
-            "code": code,
-            "name": name,
-            "semester": semester,
-            "created_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "last_modified": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        }
-        
-        with open(course_file, 'w') as f:
-            json.dump(course_data, f, indent=4)
-        
-        self.current_course = course_data
-        return True
+        if self.db.create_course(code, name, semester, created_date, last_modified):
+            self.current_course = {
+                "code": code,
+                "name": name,
+                "semester": semester,
+                "created_date": created_date,
+                "last_modified": last_modified
+            }
+            return True
+        return False
     
     def load_course(self, code: str) -> bool:
         """
@@ -58,15 +56,11 @@ class CourseManager:
         Returns:
             bool: True if successful, False otherwise
         """
-        course_file = os.path.join(self.courses_dir, f"{code}.json")
-        
-        if not os.path.exists(course_file):
-            return False
-        
-        with open(course_file, 'r') as f:
-            self.current_course = json.load(f)
-        
-        return True
+        course = self.db.get_course(code)
+        if course:
+            self.current_course = course
+            return True
+        return False
     
     def list_courses(self) -> List[Dict]:
         """
@@ -75,18 +69,7 @@ class CourseManager:
         Returns:
             List of course dictionaries
         """
-        courses = []
-        
-        if not os.path.exists(self.courses_dir):
-            return courses
-        
-        for filename in os.listdir(self.courses_dir):
-            if filename.endswith('.json'):
-                course_file = os.path.join(self.courses_dir, filename)
-                with open(course_file, 'r') as f:
-                    courses.append(json.load(f))
-        
-        return sorted(courses, key=lambda x: x['code'])
+        return self.db.get_all_courses()
     
     def save_course(self) -> bool:
         """
@@ -98,15 +81,11 @@ class CourseManager:
         if not self.current_course:
             return False
         
-        course_file = os.path.join(self.courses_dir, f"{self.current_course['code']}.json")
-        self.current_course['last_modified'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        last_modified = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-        with open(course_file, 'w') as f:
-            json.dump(self.current_course, f, indent=4)
-        
-        return True
-    
-    def get_course_path(self, code: str) -> str:
-        """Get the file path for a course"""
-        return os.path.join(self.courses_dir, f"{code}.json")
-
+        return self.db.update_course(
+            self.current_course['code'],
+            self.current_course.get('name'),
+            self.current_course.get('semester'),
+            last_modified
+        )

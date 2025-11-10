@@ -1,5 +1,8 @@
-import json
-import os
+"""
+Student Manager Module
+Handles student enrollment and management using SQLite database
+"""
+
 import csv
 from typing import Dict, List, Optional
 
@@ -7,16 +10,16 @@ from typing import Dict, List, Optional
 class StudentManager:
     """Manages student information and operations"""
     
-    def __init__(self):
-        self.students_dir = "students"
+    def __init__(self, db):
+        """
+        Initialize student manager
+        
+        Args:
+            db: DatabaseManager instance
+        """
+        self.db = db
         self.course_code = None
         self.students = {}
-        self._initialize_directories()
-    
-    def _initialize_directories(self):
-        """Create necessary directories if they don't exist"""
-        if not os.path.exists(self.students_dir):
-            os.makedirs(self.students_dir)
     
     def set_course(self, course_code: str):
         """
@@ -28,34 +31,14 @@ class StudentManager:
         self.course_code = course_code
         self._load_students()
     
-    def _get_students_file(self) -> str:
-        """Get the students file path for current course"""
-        if not self.course_code:
-            return None
-        return os.path.join(self.students_dir, f"{self.course_code}_students.json")
-    
     def _load_students(self):
-        """Load students for current course"""
-        students_file = self._get_students_file()
-        
-        if not students_file or not os.path.exists(students_file):
+        """Load students for current course from database"""
+        if not self.course_code:
             self.students = {}
             return
         
-        with open(students_file, 'r') as f:
-            self.students = json.load(f)
-    
-    def _save_students(self) -> bool:
-        """Save students to file"""
-        students_file = self._get_students_file()
-        
-        if not students_file:
-            return False
-        
-        with open(students_file, 'w') as f:
-            json.dump(self.students, f, indent=4)
-        
-        return True
+        students_list = self.db.get_all_students(self.course_code)
+        self.students = {s['id']: s for s in students_list}
     
     def add_student(self, student_id: str, name: str, email: str = "") -> bool:
         """
@@ -69,16 +52,18 @@ class StudentManager:
         Returns:
             bool: True if successful, False if student already exists
         """
-        if student_id in self.students:
+        if not self.course_code:
             return False
         
-        self.students[student_id] = {
-            "id": student_id,
-            "name": name,
-            "email": email
-        }
-        
-        return self._save_students()
+        if self.db.add_student(student_id, self.course_code, name, email):
+            self.students[student_id] = {
+                "id": student_id,
+                "course_code": self.course_code,
+                "name": name,
+                "email": email
+            }
+            return True
+        return False
     
     def get_student(self, student_id: str) -> Optional[Dict]:
         """
@@ -114,15 +99,16 @@ class StudentManager:
         Returns:
             bool: True if successful, False if student not found
         """
-        if student_id not in self.students:
+        if not self.course_code or student_id not in self.students:
             return False
         
-        if name:
-            self.students[student_id]["name"] = name
-        if email is not None:
-            self.students[student_id]["email"] = email
-        
-        return self._save_students()
+        if self.db.update_student(student_id, self.course_code, name, email):
+            if name:
+                self.students[student_id]["name"] = name
+            if email is not None:
+                self.students[student_id]["email"] = email
+            return True
+        return False
     
     def remove_student(self, student_id: str) -> bool:
         """
@@ -134,11 +120,13 @@ class StudentManager:
         Returns:
             bool: True if successful, False if student not found
         """
-        if student_id not in self.students:
+        if not self.course_code or student_id not in self.students:
             return False
         
-        del self.students[student_id]
-        return self._save_students()
+        if self.db.delete_student(student_id, self.course_code):
+            del self.students[student_id]
+            return True
+        return False
     
     def import_from_csv(self, filename: str) -> int:
         """
@@ -150,6 +138,10 @@ class StudentManager:
         Returns:
             Number of students imported
         """
+        if not self.course_code:
+            return 0
+        
+        import os
         if not os.path.exists(filename):
             return 0
         
@@ -198,4 +190,3 @@ class StudentManager:
         except Exception as e:
             print(f"Error exporting CSV: {e}")
             return False
-

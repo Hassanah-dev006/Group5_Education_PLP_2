@@ -1,23 +1,26 @@
-import json
-import os
+"""
+Grade Manager Module
+Handles grade recording, calculation, and analysis using SQLite database
+"""
+
 import csv
 import statistics
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 
 class GradeManager:
     """Manages grade operations and calculations"""
     
-    def __init__(self):
-        self.grades_dir = "grades"
+    def __init__(self, db):
+        """
+        Initialize grade manager
+        
+        Args:
+            db: DatabaseManager instance
+        """
+        self.db = db
         self.course_code = None
-        self.grades = {}  # {student_id: {assignment_title: score}}
-        self._initialize_directories()
-    
-    def _initialize_directories(self):
-        """Create necessary directories if they don't exist"""
-        if not os.path.exists(self.grades_dir):
-            os.makedirs(self.grades_dir)
+        self.grades = {}  # Cache: {student_id: {assignment_title: score}}
     
     def set_course(self, course_code: str):
         """
@@ -29,34 +32,14 @@ class GradeManager:
         self.course_code = course_code
         self._load_grades()
     
-    def _get_grades_file(self) -> str:
-        """Get the grades file path for current course"""
-        if not self.course_code:
-            return None
-        return os.path.join(self.grades_dir, f"{self.course_code}_grades.json")
-    
     def _load_grades(self):
-        """Load grades for current course"""
-        grades_file = self._get_grades_file()
-        
-        if not grades_file or not os.path.exists(grades_file):
+        """Load grades for current course from database"""
+        if not self.course_code:
             self.grades = {}
             return
         
-        with open(grades_file, 'r') as f:
-            self.grades = json.load(f)
-    
-    def _save_grades(self) -> bool:
-        """Save grades to file"""
-        grades_file = self._get_grades_file()
-        
-        if not grades_file:
-            return False
-        
-        with open(grades_file, 'w') as f:
-            json.dump(self.grades, f, indent=4)
-        
-        return True
+        # This is a simplified load - in practice, you might want to load on-demand
+        self.grades = {}
     
     def enter_grade(self, student_id: str, assignment_title: str, score: float) -> bool:
         """
@@ -70,11 +53,16 @@ class GradeManager:
         Returns:
             bool: True if successful, False otherwise
         """
-        if student_id not in self.grades:
-            self.grades[student_id] = {}
+        if not self.course_code:
+            return False
         
-        self.grades[student_id][assignment_title] = score
-        return self._save_grades()
+        if self.db.enter_grade(student_id, self.course_code, assignment_title, score):
+            # Update cache
+            if student_id not in self.grades:
+                self.grades[student_id] = {}
+            self.grades[student_id][assignment_title] = score
+            return True
+        return False
     
     def get_student_grades(self, student_id: str) -> Dict[str, float]:
         """
@@ -86,7 +74,11 @@ class GradeManager:
         Returns:
             Dictionary of assignment titles to scores
         """
-        return self.grades.get(student_id, {})
+        if not self.course_code:
+            return {}
+        
+        # Get from database
+        return self.db.get_student_grades(student_id, self.course_code)
     
     def get_assignment_grades(self, assignment_title: str) -> Dict[str, float]:
         """
@@ -98,11 +90,10 @@ class GradeManager:
         Returns:
             Dictionary of student IDs to scores
         """
-        assignment_grades = {}
-        for student_id, grades in self.grades.items():
-            if assignment_title in grades:
-                assignment_grades[student_id] = grades[assignment_title]
-        return assignment_grades
+        if not self.course_code:
+            return {}
+        
+        return self.db.get_assignment_grades(self.course_code, assignment_title)
     
     def import_grades_csv(self, filename: str, student_manager, assignment_manager) -> int:
         """
@@ -116,6 +107,10 @@ class GradeManager:
         Returns:
             Number of grades imported
         """
+        if not self.course_code:
+            return 0
+        
+        import os
         if not os.path.exists(filename):
             return 0
         
@@ -347,11 +342,10 @@ class GradeManager:
         Returns:
             bool: True if successful, False otherwise
         """
-        for student_id in self.grades:
-            if assignment_title in self.grades[student_id]:
-                del self.grades[student_id][assignment_title]
+        if not self.course_code:
+            return False
         
-        return self._save_grades()
+        return self.db.delete_assignment_grades(self.course_code, assignment_title)
     
     def get_assignment_statistics(self, assignment_title: str) -> Optional[Dict]:
         """
@@ -382,5 +376,3 @@ class GradeManager:
             stats["stdev"] = statistics.stdev(scores)
         
         return stats
-
-

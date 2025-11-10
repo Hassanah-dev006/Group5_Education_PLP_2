@@ -1,13 +1,11 @@
-# pygrade.py - Main application file for PyGrade
-import json
-import os
-import csv
+# pygrade.py - Main application file for PyGrade@
 import hashlib
 from datetime import datetime
 from typing import Dict, List, Optional
 import getpass
 
 # Import custom modules
+from database import DatabaseManager
 from course_manager import CourseManager
 from student_manager import StudentManager
 from assignment_manager import AssignmentManager
@@ -20,43 +18,43 @@ class PyGrade:
     """Main PyGrade application class"""
     
     def __init__(self):
-        self.users_file = "users.json"
+        self.db = DatabaseManager()  # Initialize database
         self.current_user = None
         self.user_role = None
-        self.course_manager = CourseManager()
-        self.student_manager = StudentManager()
-        self.assignment_manager = AssignmentManager()
-        self.grade_manager = GradeManager()
+        self.course_manager = CourseManager(self.db)
+        self.student_manager = StudentManager(self.db)
+        self.assignment_manager = AssignmentManager(self.db)
+        self.grade_manager = GradeManager(self.db)
         self.report_generator = ReportGenerator()
         self._initialize_system()
     
     def _initialize_system(self):
         """Initialize the system and create default users if needed"""
-        if not os.path.exists(self.users_file):
+        users = self.db.get_all_users()
+        if not users:
             self._create_default_users()
-    
+
     def _create_default_users(self):
         """Create default user accounts"""
-        default_users = {
-            "admin": {
-                "password": self._hash_password("admin123"),
-                "role": "lecturer",
-                "name": "System Administrator"
-            },
-            "lecturer1": {
-                "password": self._hash_password("lecture123"),
-                "role": "lecturer",
-                "name": "Dr. John Smith"
-            },
-            "student1": {
-                "password": self._hash_password("student123"),
-                "role": "student",
-                "name": "Alice Johnson",
-                "student_id": "S001"
-            }
-        }
-        with open(self.users_file, 'w') as f:
-            json.dump(default_users, f, indent=4)
+        self.db.create_user(
+            "admin",
+            self._hash_password("admin123"),
+            "lecturer",
+            "System Administrator"
+        )
+        self.db.create_user(
+            "lecturer1",
+            self._hash_password("lecture123"),
+            "lecturer",
+            "Dr. John Smith"
+        )
+        self.db.create_user(
+            "student1",
+            self._hash_password("student123"),
+            "student",
+            "Alice Johnson",
+            "S001"
+        )
     
     def _hash_password(self, password: str) -> str:
         """Hash a password using SHA-256"""
@@ -77,22 +75,14 @@ class PyGrade:
         password = getpass.getpass("Please enter your password: ")
         
         # Load users
-        if not os.path.exists(self.users_file):
-            print("\n❌ Error: User database not found!")
+     user = self.db.get_user(username)
+        
+        if user and user["password"] == self._hash_password(password):
+            self.current_user = username
+            self.user_role = user["role"]
+            print(f"\n✓ Login successful! Welcome, {user['name']}")
             pause()
-            return False
-        
-        with open(self.users_file, 'r') as f:
-            users = json.load(f)
-        
-        # Validate credentials
-        if username in users:
-            if users[username]["password"] == self._hash_password(password):
-                self.current_user = username
-                self.user_role = users[username]["role"]
-                print(f"\n✓ Login successful! Welcome, {users[username]['name']}")
-                pause()
-                return True
+            return True
         
         print("\n❌ Invalid username or password!")
         pause()
