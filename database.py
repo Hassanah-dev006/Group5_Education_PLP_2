@@ -449,23 +449,3 @@ class DatabaseManager:
             stats['total_grades'] = cursor.fetchone()['count']
             
             return stats
-    
-    def backup_database(self, backup_path: str) -> bool:
-        """Create a backup of the database"""
-        try:
-            import shutil
-            shutil.copy2(self.db_name, backup_path)
-            return True
-        except Exception:
-            return False
-    
-    def clear_database(self):
-        """Clear all data from database (USE WITH CAUTION)"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM grades")
-            cursor.execute("DELETE FROM assignments")
-            cursor.execute("DELETE FROM students")
-            cursor.execute("DELETE FROM courses")
-            cursor.execute("DELETE FROM users")
-            conn.commit()

@@ -1,3 +1,8 @@
+"""
+PyGrade - Python-based Automated Grading System
+A comprehensive grading management system with SQLite database
+"""
+
 import hashlib
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -17,7 +22,7 @@ class PyGrade:
     """Main PyGrade application class"""
     
     def __init__(self):
-        self.db = DatabaseManager()  # Initialize database
+        self.db = DatabaseManager()
         self.current_user = None
         self.user_role = None
         self.course_manager = CourseManager(self.db)
@@ -192,7 +197,7 @@ class PyGrade:
             self.assignment_manager.set_course(code)
             self.grade_manager.set_course(code)
         else:
-            print("\n❌ Failed to create course! Course code may already exist.")
+            print("\n❌ Failed to create course!")
         pause()
     
     def load_course(self):
@@ -351,7 +356,7 @@ class PyGrade:
         if count > 0:
             print(f"\n✓ Successfully imported {count} students!")
         else:
-            print("\n❌ Failed to import students! Check file format and path.")
+            print("\n❌ Failed to import students!")
         pause()
     
     def view_all_students(self):
@@ -640,3 +645,446 @@ class PyGrade:
         clear_screen()
         print("=" * 60)
         print(" " * 15 + "BULK IMPORT GRADES")
+        print("=" * 60)
+        print("\nCSV Format: student_id,assignment_title,score")
+        print("Example: S001,Midterm Exam,85")
+        
+        filename = input("\nPlease upload the grade file (CSV format): ").strip()
+        
+        count = self.grade_manager.import_grades_csv(filename, self.student_manager, self.assignment_manager)
+        if count > 0:
+            print(f"\n✓ Successfully imported {count} grades!")
+        else:
+            print("\n❌ Failed to import grades!")
+        pause()
+    
+    def view_student_grades(self):
+        """View grades for a specific student"""
+        clear_screen()
+        student_id = input("Enter student ID: ").strip().upper()
+        
+        student = self.student_manager.get_student(student_id)
+        if not student:
+            print(f"\n❌ Student {student_id} not found!")
+            pause()
+            return
+        
+        print("=" * 60)
+        print(f"GRADES FOR: {student['name']} ({student_id})")
+        print("=" * 60)
+        
+        grades = self.grade_manager.get_student_grades(student_id)
+        
+        if not grades:
+            print("\n⚠ No grades recorded yet!")
+        else:
+            print(f"\n{'Assignment':<30} {'Score':<10} {'Max':<10} {'Percentage':<10}")
+            print("-" * 60)
+            for assignment_title, score in grades.items():
+                assignment = self.assignment_manager.get_assignment(assignment_title)
+                if assignment:
+                    percentage = (score / assignment['max_score']) * 100
+                    print(f"{assignment_title:<30} {score:<10} {assignment['max_score']:<10} {percentage:<10.2f}%")
+        pause()
+    
+    def calculate_final_grades(self):
+        """Calculate final grades for all students"""
+        clear_screen()
+        print("=" * 60)
+        print(" " * 15 + "CALCULATE FINAL GRADES")
+        print("=" * 60)
+        print("\nCalculating final grades... please wait.\n")
+        
+        results = self.grade_manager.calculate_final_grades(
+            self.student_manager,
+            self.assignment_manager
+        )
+        
+        if results:
+            print(f"{'Student ID':<12} {'Name':<30} {'Total':<10} {'Grade':<10}")
+            print("-" * 62)
+            for result in results:
+                print(f"{result['student_id']:<12} {result['name']:<30} "
+                      f"{result['weighted_total']:<10.2f} {result['letter_grade']:<10}")
+            print(f"\n✓ Final grades calculated for {len(results)} students!")
+        else:
+            print("⚠ No students or grades found!")
+        pause()
+    
+    def detect_outliers(self):
+        """Detect and review outlier scores"""
+        clear_screen()
+        print("=" * 60)
+        print(" " * 15 + "OUTLIER DETECTION")
+        print("=" * 60)
+        print("\nScanning for unusual scores...\n")
+        
+        outliers = self.grade_manager.detect_outliers(
+            self.student_manager,
+            self.assignment_manager
+        )
+        
+        if not outliers:
+            print("✓ No outliers detected! All scores are within normal range.")
+        else:
+            print(f"⚠ Detected {len(outliers)} unusual score(s):\n")
+            for outlier in outliers:
+                print(f"Student ID: {outlier['student_id']}")
+                print(f"Student Name: {outlier['student_name']}")
+                print(f"Assignment: {outlier['assignment']}")
+                print(f"Score: {outlier['score']} / {outlier['max_score']}")
+                print(f"Reason: {outlier['reason']}")
+                print("-" * 60)
+            
+            review = input("\nWould you like to review these scores? (yes/no): ").strip().lower()
+            if review == "yes":
+                print("\n✓ Please review the flagged scores above.")
+        pause()
+    
+    def reports_menu(self):
+        """Reports and analytics menu"""
+        if not self.course_manager.current_course:
+            print("⚠ Please load a course first!")
+            pause()
+            return
+        
+        while True:
+            clear_screen()
+            print("=" * 60)
+            print(" " * 15 + "REPORTS & ANALYTICS")
+            print("=" * 60)
+            print(f"\nCourse: {self.course_manager.current_course['name']}")
+            print("\n" + "-" * 60)
+            print("1. Generate Class Summary Report")
+            print("2. Generate Individual Student Report")
+            print("3. Export Grades to CSV")
+            print("4. Export Report to PDF")
+            print("5. Course Statistics")
+            print("6. Back to Main Menu")
+            print("-" * 60)
+            
+            choice = input("\nEnter your choice (1-6): ").strip()
+            
+            if choice == "1":
+                self.generate_class_summary()
+            elif choice == "2":
+                self.generate_individual_report()
+            elif choice == "3":
+                self.export_csv()
+            elif choice == "4":
+                self.export_pdf()
+            elif choice == "5":
+                self.show_statistics()
+            elif choice == "6":
+                break
+            else:
+                print("\n❌ Invalid choice!")
+                pause()
+    
+    def generate_class_summary(self):
+        """Generate class summary report"""
+        clear_screen()
+        print("=" * 60)
+        print(" " * 15 + "CLASS SUMMARY REPORT")
+        print("=" * 60)
+        
+        report = self.report_generator.generate_class_summary(
+            self.course_manager.current_course,
+            self.student_manager,
+            self.assignment_manager,
+            self.grade_manager
+        )
+        
+        print(report)
+        
+        save = input("\nSave report to file? (yes/no): ").strip().lower()
+        if save == "yes":
+            filename = f"class_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+            with open(filename, 'w') as f:
+                f.write(report)
+            print(f"\n✓ Report saved to {filename}")
+        pause()
+    
+    def generate_individual_report(self):
+        """Generate individual student report"""
+        clear_screen()
+        student_id = input("Enter student ID: ").strip().upper()
+        
+        student = self.student_manager.get_student(student_id)
+        if not student:
+            print(f"\n❌ Student {student_id} not found!")
+            pause()
+            return
+        
+        print("=" * 60)
+        print(f"INDIVIDUAL REPORT: {student['name']}")
+        print("=" * 60)
+        
+        report = self.report_generator.generate_individual_report(
+            student_id,
+            self.student_manager,
+            self.assignment_manager,
+            self.grade_manager
+        )
+        
+        print(report)
+        
+        save = input("\nSave report to file? (yes/no): ").strip().lower()
+        if save == "yes":
+            filename = f"student_{student_id}_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+            with open(filename, 'w') as f:
+                f.write(report)
+            print(f"\n✓ Report saved to {filename}")
+        pause()
+    
+    def export_csv(self):
+        """Export grades to CSV"""
+        clear_screen()
+        print("Exporting grades to CSV...")
+        
+        filename = f"grades_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        if self.report_generator.export_to_csv(
+            filename,
+            self.student_manager,
+            self.assignment_manager,
+            self.grade_manager
+        ):
+            print(f"\n✓ Grades exported to {filename}")
+        else:
+            print("\n❌ Failed to export grades!")
+        pause()
+    
+    def export_pdf(self):
+        """Export report to PDF"""
+        clear_screen()
+        print("=" * 60)
+        print(" " * 15 + "EXPORT TO PDF")
+        print("=" * 60)
+        print("\nSelect report format to export:")
+        print("1. Class Summary Report")
+        print("2. Individual Student Report")
+        
+        choice = input("\nEnter choice (1-2): ").strip()
+        
+        if choice == "1":
+            filename = f"class_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            if self.report_generator.export_class_to_pdf(
+                filename,
+                self.course_manager.current_course,
+                self.student_manager,
+                self.assignment_manager,
+                self.grade_manager
+            ):
+                print(f"\n✓ PDF report generated: {filename}")
+            else:
+                print("\n❌ Failed to generate PDF!")
+        elif choice == "2":
+            student_id = input("Enter student ID: ").strip().upper()
+            filename = f"student_{student_id}_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            if self.report_generator.export_individual_to_pdf(
+                filename,
+                student_id,
+                self.student_manager,
+                self.assignment_manager,
+                self.grade_manager
+            ):
+                print(f"\n✓ PDF report generated: {filename}")
+            else:
+                print(f"\n❌ Failed to generate PDF for student {student_id}!")
+        else:
+            print("\n❌ Invalid choice!")
+        pause()
+    
+    def show_statistics(self):
+        """Show course statistics"""
+        clear_screen()
+        print("=" * 60)
+        print(" " * 15 + "COURSE STATISTICS")
+        print("=" * 60)
+        
+        stats = self.report_generator.calculate_statistics(
+            self.student_manager,
+            self.assignment_manager,
+            self.grade_manager
+        )
+        
+        print(f"\nCourse: {self.course_manager.current_course['name']}")
+        print(f"Total Students: {stats['total_students']}")
+        print(f"Total Assignments: {stats['total_assignments']}")
+        print(f"\nAverage Final Grade: {stats['average_grade']:.2f}")
+        print(f"Highest Grade: {stats['highest_grade']:.2f}")
+        print(f"Lowest Grade: {stats['lowest_grade']:.2f}")
+        print(f"\nGrade Distribution:")
+        for grade, count in stats['grade_distribution'].items():
+            print(f"  {grade}: {count} students")
+        pause()
+    
+    def show_help(self):
+        """Show help and documentation"""
+        clear_screen()
+        print("=" * 60)
+        print(" " * 15 + "HELP & DOCUMENTATION")
+        print("=" * 60)
+        print("""
+PyGrade - Python-based Automated Grading System
+
+GETTING STARTED:
+1. Create or load a course from the Course Management menu
+2. Add students manually or import from CSV
+3. Create assignments with weights and max scores
+4. Enter grades individually or import in bulk
+5. Calculate final grades and generate reports
+
+CSV FILE FORMATS:
+
+Students CSV:
+  student_id,name,email
+  S001,John Doe,john@example.com
+
+Grades CSV:
+  student_id,assignment_title,score
+  S001,Midterm Exam,85
+
+GRADING SCALE:
+  A: 90-100
+  B: 80-89
+  C: 70-79
+  D: 60-69
+  F: Below 60
+
+FEATURES:
+- Automatic grade calculation
+- Outlier detection
+- Multiple report formats (Text, CSV, PDF)
+- Bulk operations support
+- SQLite database storage
+
+For technical support, check README.md file.
+        """)
+        pause()
+    
+    def student_dashboard(self):
+        """Dashboard for student users"""
+        # Get student info from database
+        user = self.db.get_user(self.current_user)
+        student_id = user.get('student_id', 'UNKNOWN')
+        
+        while True:
+            clear_screen()
+            print("=" * 60)
+            print(" " * 15 + "STUDENT PORTAL")
+            print("=" * 60)
+            print(f"\nWelcome back, {user['name']}!")
+            print(f"Student ID: {student_id}")
+            print("\n" + "-" * 60)
+            print("1. View My Grades")
+            print("2. View Course Information")
+            print("3. Logout")
+            print("-" * 60)
+            
+            choice = input("\nEnter your choice (1-3): ").strip()
+            
+            if choice == "1":
+                self.view_my_grades(student_id)
+            elif choice == "2":
+                self.view_course_info_student()
+            elif choice == "3":
+                print("\n👋 Logging out...")
+                pause()
+                break
+            else:
+                print("\n❌ Invalid choice!")
+                pause()
+    
+    def view_my_grades(self, student_id: str):
+        """Student view of their own grades"""
+        # Try to find student in any available course
+        courses = self.course_manager.list_courses()
+        
+        if not courses:
+            print("\n⚠ No courses available!")
+            pause()
+            return
+        
+        clear_screen()
+        print("=" * 60)
+        print(" " * 15 + "MY PERFORMANCE SUMMARY")
+        print("=" * 60)
+        
+        found_grades = False
+        
+        for course in courses:
+            self.course_manager.load_course(course['code'])
+            self.student_manager.set_course(course['code'])
+            self.assignment_manager.set_course(course['code'])
+            self.grade_manager.set_course(course['code'])
+            
+            student = self.student_manager.get_student(student_id)
+            if student:
+                grades = self.grade_manager.get_student_grades(student_id)
+                if grades:
+                    found_grades = True
+                    print(f"\nCourse: {course['name']} ({course['code']})")
+                    print("-" * 60)
+                    print(f"{'Assignment':<30} {'Score':<10} {'Percentage':<15}")
+                    print("-" * 60)
+                    
+                    for assignment_title, score in grades.items():
+                        assignment = self.assignment_manager.get_assignment(assignment_title)
+                        if assignment:
+                            percentage = (score / assignment['max_score']) * 100
+                            print(f"{assignment_title:<30} {score:<10.2f} {percentage:<15.2f}%")
+                    
+                    # Calculate final grade
+                    final = self.grade_manager.calculate_student_final(student_id, self.assignment_manager)
+                    if final:
+                        print("-" * 60)
+                        print(f"Weighted Total: {final['weighted_total']:.2f}")
+                        print(f"Letter Grade: {final['letter_grade']}")
+                        print("=" * 60)
+        
+        if not found_grades:
+            print("\n⚠ No grades available yet!")
+        
+        pause()
+    
+    def view_course_info_student(self):
+        """Student view of course information"""
+        clear_screen()
+        print("=" * 60)
+        print(" " * 15 + "AVAILABLE COURSES")
+        print("=" * 60)
+        
+        courses = self.course_manager.list_courses()
+        
+        if not courses:
+            print("\n⚠ No courses available!")
+        else:
+            for course in courses:
+                print(f"\nCourse Code: {course['code']}")
+                print(f"Course Name: {course['name']}")
+                print(f"Semester: {course['semester']}")
+                print("-" * 60)
+        
+        pause()
+    
+    def run(self):
+        """Main application loop"""
+        while True:
+            if self.login():
+                self.main_menu()
+            else:
+                retry = input("\nTry again? (yes/no): ").strip().lower()
+                if retry != "yes":
+                    print("\n👋 Thank you for using PyGrade!")
+                    break
+
+
+def main():
+    """Entry point for PyGrade application"""
+    app = PyGrade()
+    app.run()
+
+
+if __name__ == "__main__":
+    main()

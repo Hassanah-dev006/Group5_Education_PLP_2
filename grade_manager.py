@@ -20,7 +20,7 @@ class GradeManager:
         """
         self.db = db
         self.course_code = None
-        self.grades = {}  # Cache: {student_id: {assignment_title: score}}
+        self.grades = {}
     
     def set_course(self, course_code: str):
         """
@@ -38,7 +38,6 @@ class GradeManager:
             self.grades = {}
             return
         
-        # This is a simplified load - in practice, you might want to load on-demand
         self.grades = {}
     
     def enter_grade(self, student_id: str, assignment_title: str, score: float) -> bool:
@@ -57,7 +56,6 @@ class GradeManager:
             return False
         
         if self.db.enter_grade(student_id, self.course_code, assignment_title, score):
-            # Update cache
             if student_id not in self.grades:
                 self.grades[student_id] = {}
             self.grades[student_id][assignment_title] = score
@@ -77,7 +75,6 @@ class GradeManager:
         if not self.course_code:
             return {}
         
-        # Get from database
         return self.db.get_student_grades(student_id, self.course_code)
     
     def get_assignment_grades(self, assignment_title: str) -> Dict[str, float]:
@@ -276,7 +273,7 @@ class GradeManager:
             assignment_grades = self.get_assignment_grades(assignment_title)
             
             if len(assignment_grades) < 3:
-                continue  # Need at least 3 scores for statistical analysis
+                continue
             
             scores = list(assignment_grades.values())
             mean_score = statistics.mean(scores)
@@ -284,7 +281,7 @@ class GradeManager:
             try:
                 stdev_score = statistics.stdev(scores)
             except statistics.StatisticsError:
-                continue  # All scores are the same
+                continue
             
             # Flag scores more than 2 standard deviations from mean
             for student_id, score in assignment_grades.items():
@@ -302,7 +299,7 @@ class GradeManager:
                             "reason": f"Unusual score (z-score: {z_score:.2f})"
                         })
             
-            # Also check for perfect scores or zero scores
+            # Check for zero scores or perfect scores
             for student_id, score in assignment_grades.items():
                 student = student_manager.get_student(student_id)
                 if not student:
@@ -318,9 +315,8 @@ class GradeManager:
                         "reason": "Zero score - possible issue"
                     })
                 elif score == assignment['max_score'] and len(assignment_grades) > 5:
-                    # Only flag perfect scores if there are enough submissions
                     avg_percentage = (mean_score / assignment['max_score']) * 100
-                    if avg_percentage < 75:  # Class average is low but student got perfect
+                    if avg_percentage < 75:
                         outliers.append({
                             "student_id": student_id,
                             "student_name": student['name'],

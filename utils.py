@@ -1,4 +1,8 @@
-# utils.py
+"""
+Utility Functions Module
+Helper functions for PyGrade system
+"""
+
 import os
 import sys
 import platform
@@ -136,42 +140,6 @@ def confirm_action(message: str) -> bool:
     return response in ['yes', 'y']
 
 
-def display_menu(title: str, options: list) -> int:
-    """
-    Display a menu and get user choice
-    
-    Args:
-        title: Menu title
-        options: List of menu option strings
-        
-    Returns:
-        Selected option number (1-indexed)
-    """
-    clear_screen()
-    print("=" * 60)
-    print(title.center(60))
-    print("=" * 60)
-    print()
-    
-    for i, option in enumerate(options, 1):
-        print(f"{i}. {option}")
-    
-    print("-" * 60)
-    
-    while True:
-        try:
-            choice = int(input(f"\nEnter your choice (1-{len(options)}): "))
-            if 1 <= choice <= len(options):
-                return choice
-            else:
-                print(f"Please enter a number between 1 and {len(options)}!")
-        except ValueError:
-            print("Invalid input! Please enter a number.")
-        except KeyboardInterrupt:
-            print("\n\nOperation cancelled.")
-            return -1
-
-
 def print_success(message: str):
     """Print a success message"""
     print(f"\n✓ {message}")
@@ -190,71 +158,3 @@ def print_warning(message: str):
 def print_info(message: str):
     """Print an info message"""
     print(f"\nℹ {message}")
-
-
-def create_banner(text: str, width: int = 70, char: str = "=") -> str:
-    """
-    Create a banner with text
-    
-    Args:
-        text: Banner text
-        width: Banner width
-        char: Character to use for border
-        
-    Returns:
-        Formatted banner string
-    """
-    lines = []
-    lines.append(char * width)
-    lines.append(text.center(width))
-    lines.append(char * width)
-    return "\n".join(lines)
-
-
-def truncate_string(text: str, max_length: int, suffix: str = "...") -> str:
-    """
-    Truncate a string to maximum length
-    
-    Args:
-        text: String to truncate
-        max_length: Maximum length
-        suffix: Suffix to add if truncated
-        
-    Returns:
-        Truncated string
-    """
-    if len(text) <= max_length:
-        return text
-    return text[:max_length - len(suffix)] + suffix
-
-
-def sanitize_filename(filename: str) -> str:
-    """
-    Sanitize a filename by removing invalid characters
-    
-    Args:
-        filename: Original filename
-        
-    Returns:
-        Sanitized filename
-    """
-    invalid_chars = '<>:"/\\|?*'
-    for char in invalid_chars:
-        filename = filename.replace(char, '_')
-    return filename
-
-
-def get_file_size_mb(filepath: str) -> float:
-    """
-    Get file size in MB
-    
-    Args:
-        filepath: Path to file
-        
-    Returns:
-        File size in MB
-    """
-    if os.path.exists(filepath):
-        size_bytes = os.path.getsize(filepath)
-        return size_bytes / (1024 * 1024)
-    return 0.0

@@ -1,3 +1,8 @@
+"""
+Report Generator Module
+Handles report generation and export in various formats
+"""
+
 import csv
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -39,7 +44,7 @@ class ReportGenerator:
         report.append(f"Total Assignments: {len(assignments)}")
         report.append("")
         
-        # assignment overview
+        # Assignment overview
         if assignments:
             report.append("-" * 70)
             report.append("ASSIGNMENTS")
@@ -57,7 +62,7 @@ class ReportGenerator:
             report.append(f"Total Weight: {total_weight:.2%}")
             report.append("")
         
-        # grade distribution
+        # Grade distribution
         final_grades = grade_manager.calculate_final_grades(student_manager, assignment_manager)
         
         if final_grades:
@@ -75,7 +80,7 @@ class ReportGenerator:
             
             report.append("")
             
-            # grade distribution
+            # Grade distribution
             grade_counts = {}
             for result in final_grades:
                 grade = result['letter_grade']
@@ -89,7 +94,7 @@ class ReportGenerator:
                 percentage = (count / len(final_grades) * 100) if final_grades else 0
                 report.append(f"{grade}: {count} students ({percentage:.1f}%)")
             
-            # class statistics
+            # Class statistics
             if final_grades:
                 scores = [r['weighted_total'] for r in final_grades]
                 avg_score = sum(scores) / len(scores)
@@ -132,7 +137,7 @@ class ReportGenerator:
         report.append(f"Report Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         report.append("")
         
-        # assignment grades
+        # Assignment grades
         student_grades = grade_manager.get_student_grades(student_id)
         assignments = assignment_manager.get_all_assignments()
         
@@ -155,7 +160,7 @@ class ReportGenerator:
             
             report.append("")
             
-            # final grade
+            # Final grade
             final = grade_manager.calculate_student_final(student_id, assignment_manager)
             if final:
                 report.append("-" * 70)
@@ -165,7 +170,7 @@ class ReportGenerator:
                 report.append(f"Letter Grade: {final['letter_grade']}")
                 report.append("")
                 
-                # performance feedback
+                # Performance feedback
                 score = final['weighted_total']
                 if score >= 90:
                     feedback = "Excellent work! Keep up the outstanding performance."
@@ -211,7 +216,7 @@ class ReportGenerator:
                 return False
             
             with open(filename, 'w', newline='', encoding='utf-8') as f:
-                # create header
+                # Create header
                 fieldnames = ['Student ID', 'Name', 'Email']
                 for assignment in assignments:
                     fieldnames.append(assignment['title'])
@@ -220,7 +225,7 @@ class ReportGenerator:
                 writer = csv.DictWriter(f, fieldnames=fieldnames)
                 writer.writeheader()
                 
-                # write student data
+                # Write student data
                 for student in students:
                     student_id = student['id']
                     row = {
@@ -229,13 +234,13 @@ class ReportGenerator:
                         'Email': student.get('email', '')
                     }
                     
-                    # add assignment grades
+                    # Add assignment grades
                     student_grades = grade_manager.get_student_grades(student_id)
                     for assignment in assignments:
                         title = assignment['title']
                         row[title] = student_grades.get(title, 'N/A')
                     
-                    # add final grade
+                    # Add final grade
                     final = grade_manager.calculate_student_final(student_id, assignment_manager)
                     if final:
                         row['Weighted Total'] = f"{final['weighted_total']:.2f}"
@@ -267,7 +272,7 @@ class ReportGenerator:
             bool: True if successful, False otherwise
         """
         try:
-            from reportlab.lib.pagesizes import letter, A4
+            from reportlab.lib.pagesizes import letter
             from reportlab.lib import colors
             from reportlab.lib.units import inch
             from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -277,20 +282,20 @@ class ReportGenerator:
             elements = []
             styles = getSampleStyleSheet()
             
-            # title
+            # Title
             title_style = ParagraphStyle(
                 'CustomTitle',
                 parent=styles['Heading1'],
                 fontSize=18,
                 textColor=colors.HexColor('#1a1a1a'),
                 spaceAfter=30,
-                alignment=1  # center
+                alignment=1
             )
             
             elements.append(Paragraph("CLASS SUMMARY REPORT", title_style))
             elements.append(Spacer(1, 0.2*inch))
             
-            # course info
+            # Course info
             course_info = f"""
             <b>Course:</b> {course['name']} ({course['code']})<br/>
             <b>Semester:</b> {course['semester']}<br/>
@@ -299,7 +304,7 @@ class ReportGenerator:
             elements.append(Paragraph(course_info, styles['Normal']))
             elements.append(Spacer(1, 0.3*inch))
             
-            # assignments table
+            # Assignments table
             assignments = assignment_manager.get_all_assignments()
             if assignments:
                 elements.append(Paragraph("<b>Assignments</b>", styles['Heading2']))
@@ -326,7 +331,7 @@ class ReportGenerator:
                 elements.append(assign_table)
                 elements.append(Spacer(1, 0.3*inch))
             
-            # final grades table
+            # Final grades table
             final_grades = grade_manager.calculate_final_grades(student_manager, assignment_manager)
             if final_grades:
                 elements.append(Paragraph("<b>Final Grades</b>", styles['Heading2']))
@@ -335,7 +340,7 @@ class ReportGenerator:
                 for result in final_grades:
                     grade_data.append([
                         result['student_id'],
-                        result['name'][:25],  # Truncate long names
+                        result['name'][:25],
                         f"{result['weighted_total']:.2f}",
                         result['letter_grade']
                     ])
@@ -354,7 +359,7 @@ class ReportGenerator:
                 elements.append(grade_table)
                 elements.append(Spacer(1, 0.3*inch))
                 
-                # grade distribution
+                # Grade distribution
                 grade_counts = {}
                 for result in final_grades:
                     grade = result['letter_grade']
@@ -385,7 +390,7 @@ class ReportGenerator:
             
         except ImportError:
             print("\n⚠ ReportLab library not installed!")
-            print("Install it with: pip install reportlab")
+            print("Install it with: pip3 install reportlab")
             return False
         except Exception as e:
             print(f"Error generating PDF: {e}")
@@ -421,7 +426,7 @@ class ReportGenerator:
             elements = []
             styles = getSampleStyleSheet()
             
-            # title
+            # Title
             title_style = ParagraphStyle(
                 'CustomTitle',
                 parent=styles['Heading1'],
@@ -434,7 +439,7 @@ class ReportGenerator:
             elements.append(Paragraph("INDIVIDUAL STUDENT REPORT", title_style))
             elements.append(Spacer(1, 0.2*inch))
             
-            # student info
+            # Student info
             student_info = f"""
             <b>Student ID:</b> {student['id']}<br/>
             <b>Name:</b> {student['name']}<br/>
@@ -444,7 +449,7 @@ class ReportGenerator:
             elements.append(Paragraph(student_info, styles['Normal']))
             elements.append(Spacer(1, 0.3*inch))
             
-            # grades table
+            # Grades table
             student_grades = grade_manager.get_student_grades(student_id)
             assignments = assignment_manager.get_all_assignments()
             
@@ -496,7 +501,7 @@ class ReportGenerator:
             
         except ImportError:
             print("\n⚠ ReportLab library not installed!")
-            print("Install it with: pip install reportlab")
+            print("Install it with: pip3 install reportlab")
             return False
         except Exception as e:
             print(f"Error generating PDF: {e}")
@@ -531,7 +536,7 @@ class ReportGenerator:
             stats["highest_grade"] = max(scores)
             stats["lowest_grade"] = min(scores)
             
-            # grade distribution
+            # Grade distribution
             for result in final_grades:
                 grade = result['letter_grade']
                 stats["grade_distribution"][grade] = stats["grade_distribution"].get(grade, 0) + 1
